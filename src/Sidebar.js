@@ -1,60 +1,90 @@
+// Sidebar.js
 import React from 'react';
-import styled from 'styled-components';
-import { FaTachometerAlt, FaFileAlt, FaCogs, FaShoppingCart, FaUserShield, FaRocket, FaTools, FaClipboardList, FaUsers, FaCheckCircle } from 'react-icons/fa';
+import { List, ListItem, ListItemIcon, ListItemText, AppBar, Toolbar, Typography, CssBaseline, Box, Divider } from '@mui/material';
+import { Dashboard, Group, CheckCircle, Home } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 
-const SidebarContainer = styled.div`
-  width: 250px;
-  background-color: #344767;
-  padding: 16px;
-  color: white;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-`;
+const drawerWidth = 240;
 
-const MenuItem = styled.div`
-  margin: 16px 0;
-  padding: 8px;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  &:hover {
-    background-color: #5e72e4;
-    border-radius: 4px;
-  }
-`;
+// Huisstijlkleuren
+const primaryColor = '#008075'; // Groen voor actieve elementen
+const subtleBackgroundColor = '#f8f9fa'; // Subtiele achtergrondkleur voor main content
+const appBarColor = '#e0e0e0'; // Subtiele kleur voor de AppBar
+const highlightColor = '#A0ADE0'; // Voor randen en highlights
 
-const IconContainer = styled.div`
-  margin-right: 8px;
-`;
-
-const Sidebar = () => {
+const Sidebar = ({ children }) => {
   return (
-    <SidebarContainer>
-      <h2>Menu</h2>
-      <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-        <MenuItem>
-          <IconContainer><FaTachometerAlt /></IconContainer>
-          <span>Dashboard</span>
-        </MenuItem>
-      </Link>
-      <Link to="/users" style={{ textDecoration: 'none', color: 'inherit' }}>
-        <MenuItem>
-          <IconContainer><FaUsers /></IconContainer>
-          <span>Gebruikerslijst</span>
-        </MenuItem>
-      </Link>
-      <Link to="/completed" style={{ textDecoration: 'none', color: 'inherit' }}>
-        <MenuItem>
-          <IconContainer><FaCheckCircle /></IconContainer>
-          <span>Voltooide Gebruikers</span>
-        </MenuItem>
-      </Link>
-     
-    </SidebarContainer>
+    <Box sx={{ display: 'flex' }}>
+      <CssBaseline />
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, backgroundColor: appBarColor }}>
+        <Toolbar>
+          <ListItemIcon>
+            <Home sx={{ color: primaryColor, fontSize: 36 }} />
+          </ListItemIcon>
+          <Typography variant="h6" noWrap component="div" sx={{ color: primaryColor, marginLeft: 1 }}>
+            Onboard-O-Matic
+          </Typography>
+        </Toolbar>
+      </AppBar>
+      <Box
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          height: '100vh',
+          position: 'fixed',
+          backgroundColor: subtleBackgroundColor,
+          overflowY: 'auto',
+          borderRight: `1px solid ${highlightColor}`,
+          paddingTop: (theme) => theme.spacing(8),
+        }}
+        aria-label="sidebar"
+      >
+        <Divider />
+        <List>
+          <ListItem>
+            <ListItemText primary="Onboard-O-Matic" secondary="Because IT deserves an easy button!" sx={{ color: primaryColor }} />
+          </ListItem>
+          <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <ListItem button sx={{ '&:hover': { backgroundColor: highlightColor } }}>
+              <ListItemIcon>
+                <Dashboard sx={{ color: primaryColor }} />
+              </ListItemIcon>
+              <ListItemText primary="Laatst aangemaakte users (Entra)" sx={{ color: primaryColor }} />
+            </ListItem>
+          </Link>
+          <Link to="/users" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <ListItem button sx={{ '&:hover': { backgroundColor: highlightColor } }}>
+              <ListItemIcon>
+                <Group sx={{ color: primaryColor }} />
+              </ListItemIcon>
+              <ListItemText primary="Gebruikerslijst To-Do" sx={{ color: primaryColor }} />
+            </ListItem>
+          </Link>
+          <Link to="/completed" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <ListItem button sx={{ '&:hover': { backgroundColor: highlightColor } }}>
+              <ListItemIcon>
+                <CheckCircle sx={{ color: primaryColor }} />
+              </ListItemIcon>
+              <ListItemText primary="Voltooide Gebruikers" sx={{ color: primaryColor }} />
+            </ListItem>
+          </Link>
+        </List>
+      </Box>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          marginLeft: `${drawerWidth}px`,
+          backgroundColor: subtleBackgroundColor,
+          minHeight: '100vh',
+          paddingTop: (theme) => theme.spacing(8), // Zorg ervoor dat het hoofdgedeelte onder de AppBar begint
+        }}
+      >
+        <Toolbar />
+        {children}
+      </Box>
+    </Box>
   );
 };
 

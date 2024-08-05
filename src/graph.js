@@ -34,3 +34,23 @@ export async function getUsers(accessToken) {
     throw error;
   }
 }
+
+export async function getUserGroups(userId, accessToken) {
+  const client = Client.init({
+    authProvider: (done) => {
+      done(null, accessToken);
+    },
+  });
+
+  try {
+    const result = await client
+      .api(`/users/${userId}/memberOf`)
+      .select('displayName')
+      .get();
+
+    return result.value.map(group => group.displayName);
+  } catch (error) {
+    console.error("Error fetching user groups from Graph API:", error);
+    throw error;
+  }
+}

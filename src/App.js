@@ -1,58 +1,22 @@
+// App.js
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import { loginRequest } from './authConfig';
 import { getUsers } from './graph';
 import { db } from './firebase';
-import styled from 'styled-components';
+import { Box, Button, Card, CardContent, Typography } from '@mui/material';
 import { collection, doc, setDoc } from 'firebase/firestore';
 import Sidebar from './Sidebar';
 import UserList from './UserList';
 import CompletedUsers from './CompletedUsers';
 
-// Kleuren
-const primaryColor = '#5e72e4';
-const secondaryColor = '#11cdef';
-const complementaryColor = '#f5365c';
-
-const Container = styled.div`
-  display: flex;
-`;
-
-const MainContent = styled.div`
-  flex: 1;
-  padding: 16px;
-  background-color: #f8f9fa;
-`;
-
-const CardContainer = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-around;
-`;
-
-const Card = styled.div`
-  background-color: white;
-  border: 1px solid ${secondaryColor};
-  border-radius: 8px;
-  width: 300px;
-  margin: 16px;
-  padding: 16px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  color: #344767;
-`;
-
-const Button = styled.button`
-  background-color: ${primaryColor};
-  border: none;
-  border-radius: 4px;
-  color: white;
-  padding: 8px 16px;
-  cursor: pointer;
-  &:hover {
-    background-color: ${complementaryColor};
-  }
-`;
+// Huisstijlkleuren
+const primaryColor = '#008075';
+const secondaryColor = '#FAA573';
+const accentColor = '#EBAFB9';
+const subtleBackgroundColor = '#f8f9fa';
+const highlightColor = '#A0ADE0';
 
 const App = () => {
   const { instance, accounts } = useMsal();
@@ -105,7 +69,7 @@ const App = () => {
           'brief': false
         }
       });
-      alert('User saved successfully!');
+      alert('Gebruiker is naar To-Do verzonden!');
     } catch (err) {
       console.error("Error saving user: ", err);
       setError(err);
@@ -121,38 +85,39 @@ const App = () => {
 
   return (
     <Router>
-      <Container>
-        <Sidebar />
-        <MainContent>
+      <Sidebar>
+        <Box sx={{ backgroundColor: subtleBackgroundColor, minHeight: '100vh', padding: 3 }}>
           <Routes>
-            <Route path="/users" element={<UserList />} />
-            <Route path="/completed" element={<CompletedUsers />} />
             <Route path="/" element={
-              <>
-                <h1>New Users Created in the Last Week</h1>
+              <Box sx={{ padding: 3 }}>
+                <Typography variant="h4" gutterBottom sx={{ color: primaryColor }}>Laatst aangemaakte users (30)</Typography>
                 {!isAuthenticated && (
-                  <Button onClick={handleLogin}>Login</Button>
+                  <Button variant="contained" color="primary" onClick={handleLogin} sx={{ backgroundColor: primaryColor, '&:hover': { backgroundColor: highlightColor } }}>Login</Button>
                 )}
-                {error && <div style={{ color: 'red' }}>Error: {error.message}</div>}
-                <CardContainer>
+                {error && <Typography color="error">Error: {error.message}</Typography>}
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-around' }}>
                   {users.map(user => (
-                    <Card key={user.id}>
-                      <strong>{user.displayName}</strong>
-                      <p>First Name: {user.givenName}</p>
-                      <p>Last Name: {user.surname}</p>
-                      <p>User Principal Name: {user.userPrincipalName}</p>
-                      <p>Job Title: {user.jobTitle}</p>
-                      <p>Department: {user.department}</p>
-                      <p>Created At: {new Date(user.createdDateTime).toLocaleString()}</p>
-                      <Button onClick={() => handleSaveUser(user)}>Save</Button>
+                    <Card key={user.id} sx={{ width: 300, margin: 2, border: `1px solid ${highlightColor}` }}>
+                      <CardContent>
+                        <Typography variant="h6" sx={{ color: primaryColor }}>{user.displayName}</Typography>
+                        <Typography variant="body2">First Name: {user.givenName}</Typography>
+                        <Typography variant="body2">Last Name: {user.surname}</Typography>
+                        <Typography variant="body2">User Principal Name: {user.userPrincipalName}</Typography>
+                        <Typography variant="body2">Job Title: {user.jobTitle}</Typography>
+                        <Typography variant="body2">Department: {user.department}</Typography>
+                        <Typography variant="body2">Created At: {new Date(user.createdDateTime).toLocaleString()}</Typography>
+                        <Button variant="contained" color="secondary" onClick={() => handleSaveUser(user)} sx={{ backgroundColor: secondaryColor, '&:hover': { backgroundColor: accentColor }, color: '#fff' }}>Sla op in To-Do</Button>
+                      </CardContent>
                     </Card>
                   ))}
-                </CardContainer>
-              </>
+                </Box>
+              </Box>
             } />
+            <Route path="/users" element={<UserList />} />
+            <Route path="/completed" element={<CompletedUsers />} />
           </Routes>
-        </MainContent>
-      </Container>
+        </Box>
+      </Sidebar>
     </Router>
   );
 };

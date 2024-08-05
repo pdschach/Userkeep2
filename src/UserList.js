@@ -1,74 +1,53 @@
+// UserList.js
 import React, { useState, useEffect } from 'react';
+import { useMsal } from '@azure/msal-react';
 import { db } from './firebase';
-import styled from 'styled-components';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
-import { FaClipboard, FaTrash, FaCheck } from 'react-icons/fa';
+import { getUserGroups } from './graph';
+import {
+  Box,
+  Card,
+  CardContent,
+  Button,
+  Typography,
+  Checkbox,
+  TextField,
+  IconButton,
+  Collapse,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Paper,
+} from '@mui/material';
+import {
+  ExpandMore,
+  ExpandLess,
+  Check,
+  Delete,
+  ContentCopy,
+  Group as GroupIcon,
+  Close,
+} from '@mui/icons-material';
 
-// Kleuren
-const primaryColor = '#5e72e4';
-const secondaryColor = '#11cdef';
-const complementaryColor = '#f5365c';
-
-const Container = styled.div`
-  padding: 16px;
-  background-color: #f8f9fa;
-`;
-
-const Card = styled.div`
-  background-color: white;
-  border: 1px solid ${secondaryColor};
-  border-radius: 8px;
-  margin: 16px 0;
-  padding: 16px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  color: #344767;
-`;
-
-const InfoContainer = styled.div`
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
-`;
-
-const InfoText = styled.p`
-  margin-right: 8px;
-`;
-
-const CheckboxContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  margin-top: 16px;
-`;
-
-const CheckboxLabel = styled.label`
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
-`;
-
-const Checkbox = styled.input`
-  margin-right: 8px;
-`;
-
-const Button = styled.button`
-  background-color: ${primaryColor};
-  border: none;
-  border-radius: 4px;
-  color: white;
-  padding: 4px 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  margin-right: 8px;
-  &:hover {
-    background-color: ${complementaryColor};
-  }
-`;
+// Huisstijlkleuren
+const primaryColor = '#008075'; // Groen voor complete en voltooid
+const accentColor = '#EBAFB9'; // Roze-rood voor delete en te doen
+const subtleBackgroundColor = '#f8f9fa'; // Subtiele achtergrondkleur
+const secondaryColor = '#FAA573'; // Kleur definitie toegevoegd
+const highlightColor = '#A0ADE0';
 
 const UserList = () => {
+  const { instance, accounts } = useMsal();
   const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
   const [error, setError] = useState(null);
   const [copiedText, setCopiedText] = useState('');
+  const [showGroups, setShowGroups] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [expandedUserId, setExpandedUserId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -79,8 +58,9 @@ const UserList = () => {
           ...doc.data(),
         }));
         setUsers(usersData);
+        setFilteredUsers(usersData);
       } catch (err) {
-        console.error("Error fetching users: ", err);
+        console.error('Error fetching users: ', err);
         setError(err);
       }
     };
@@ -97,8 +77,11 @@ const UserList = () => {
       setUsers(users.map(user => 
         user.id === userId ? { ...user, todo: { ...user.todo, [field]: value } } : user
       ));
+      setFilteredUsers(filteredUsers.map(user => 
+        user.id === userId ? { ...user, todo: { ...user.todo, [field]: value } } : user
+      ));
     } catch (err) {
-      console.error("Error updating todo: ", err);
+      console.error('Error updating todo: ', err);
       setError(err);
     }
   };
@@ -108,7 +91,7 @@ const UserList = () => {
       setCopiedText(text);
       setTimeout(() => setCopiedText(''), 2000); // Reset after 2 seconds
     }).catch(err => {
-      console.error("Failed to copy: ", err);
+      console.error('Failed to copy: ', err);
       setError(err);
     });
   };
@@ -117,8 +100,9 @@ const UserList = () => {
     try {
       await deleteDoc(doc(db, 'users', userId));
       setUsers(users.filter(user => user.id !== userId));
+      setFilteredUsers(filteredUsers.filter(user => user.id !== userId));
     } catch (err) {
-      console.error("Error deleting user: ", err);
+      console.error('Error deleting user: ', err);
       setError(err);
     }
   };
@@ -128,72 +112,197 @@ const UserList = () => {
       await setDoc(doc(collection(db, 'completedUsers'), user.id), user);
       await deleteDoc(doc(db, 'users', user.id));
       setUsers(users.filter(u => u.id !== user.id));
+      setFilteredUsers(filteredUsers.filter(u => u.id !== user.id));
     } catch (err) {
-      console.error("Error completing user: ", err);
+      console.error('Error completing user: ', err);
       setError(err);
     }
   };
 
+  const handleShowGroups = async (user) => {
+    try {
+      const accessToken = await instance.acquireTokenSilent({
+        scopes: ['User.Read.All', 'GroupMember.Read.All'],
+        account: accounts[0],
+      });
+
+      const userGroups = await getUserGroups(user.id, accessToken.accessToken);
+      setSelectedUser(user);
+      setGroups(userGroups);
+      setShowGroups(true);
+    } catch (err) {
+      console.error('Error fetching groups: ', err);
+      setError(err);
+    }
+  };
+
+  const toggleExpandUser = (userId) => {
+    setExpandedUserId(expandedUserId === userId ? null : userId);
+  };
+
+  const renderTodoSummary = (user) => {
+    const completedTasks = Object.entries(user.todo || {})
+      .filter(([key, value]) => value)
+      .map(([key]) => key);
+
+    const pendingTasks = Object.entries(user.todo || {})
+      .filter(([key, value]) => !value)
+      .map(([key]) => key);
+
+    return {
+      completed: completedTasks,
+      pending: pendingTasks,
+    };
+  };
+
+  const handleSearchChange = (event) => {
+    const searchValue = event.target.value.toLowerCase();
+    setSearchTerm(searchValue);
+    const filtered = users.filter(user =>
+      user.userPrincipalName.toLowerCase().includes(searchValue)
+    );
+    setFilteredUsers(filtered);
+  };
+
   return (
-    <Container>
-      <h1>Saved Users and Their To-Do Lists</h1>
-      {error && <div style={{ color: 'red' }}>Error: {error.message}</div>}
-      {users.map(user => (
-        <Card key={user.id}>
-          <strong>{user.displayName}</strong>
-          <InfoContainer>
-            <InfoText>First Name: {user.givenName}</InfoText>
-            <Button onClick={() => copyToClipboard(user.givenName)}>
-              <FaClipboard />
-            </Button>
-          </InfoContainer>
-          <InfoContainer>
-            <InfoText>Last Name: {user.surname}</InfoText>
-            <Button onClick={() => copyToClipboard(user.surname)}>
-              <FaClipboard />
-            </Button>
-          </InfoContainer>
-          <InfoContainer>
-            <InfoText>User Principal Name: {user.userPrincipalName}</InfoText>
-            <Button onClick={() => copyToClipboard(user.userPrincipalName)}>
-              <FaClipboard />
-            </Button>
-          </InfoContainer>
-          <InfoContainer>
-            <InfoText>Job Title: {user.jobTitle}</InfoText>
-            <Button onClick={() => copyToClipboard(user.jobTitle)}>
-              <FaClipboard />
-            </Button>
-          </InfoContainer>
-          <InfoContainer>
-            <InfoText>Department: {user.department}</InfoText>
-            <Button onClick={() => copyToClipboard(user.department)}>
-              <FaClipboard />
-            </Button>
-          </InfoContainer>
-          <p>Created At: {new Date(user.createdDateTime).toLocaleString()}</p>
-          <CheckboxContainer>
-            {['Postvakdelegatie', 'Groepen (Active Directory)', 'Logonscript', 'Ultimo (profiel)', 'Ultimo (user koppeling)', 'Controle profiel', 'Intranet machtigingen', 'brief'].map(item => (
-              <CheckboxLabel key={item}>
-                <Checkbox
-                  type="checkbox"
-                  checked={user.todo && user.todo[item]}
-                  onChange={(e) => handleCheckboxChange(user.id, item, e.target.checked)}
-                />
-                {item}
-              </CheckboxLabel>
+    <Box sx={{ padding: 3, backgroundColor: subtleBackgroundColor, minHeight: '100vh' }}>
+      <Typography variant="h4" align="center" gutterBottom sx={{ color: primaryColor }}>
+        To-Do
+      </Typography>
+      <TextField
+        variant="outlined"
+        fullWidth
+        placeholder="Search by User Principal Name..."
+        value={searchTerm}
+        onChange={handleSearchChange}
+        sx={{ marginBottom: 3, backgroundColor: '#fff', borderRadius: 1 }}
+      />
+      {error && <Typography color="error">{error.message}</Typography>}
+      {filteredUsers.map(user => {
+        const summary = renderTodoSummary(user);
+        return (
+          <Card key={user.id} sx={{ marginBottom: 2, border: `1px solid ${highlightColor}` }}>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box display="flex" alignItems="center">
+                  <IconButton onClick={() => toggleExpandUser(user.id)} sx={{ color: primaryColor }}>
+                    {expandedUserId === user.id ? <ExpandLess /> : <ExpandMore />}
+                  </IconButton>
+                  <Typography variant="h6" sx={{ color: primaryColor }}>{user.displayName}</Typography>
+                  {summary.pending.length > 0 && (
+                    <Typography variant="body2" sx={{ marginLeft: 1, color: accentColor }}>
+                      Te Doen: {summary.pending.length}
+                    </Typography>
+                  )}
+                  {summary.completed.length > 0 && (
+                    <Typography variant="body2" sx={{ marginLeft: 1, color: primaryColor }}>
+                      Voltooid: {summary.completed.length}
+                    </Typography>
+                  )}
+                </Box>
+                <Box>
+                  <Button
+                    variant="contained"
+                    onClick={() => handleCompleteUser(user)}
+                    startIcon={<Check />}
+                    sx={{
+                      marginRight: 1,
+                      backgroundColor: primaryColor,
+                      '&:hover': {
+                        backgroundColor: highlightColor,
+                      },
+                      color: '#fff',
+                    }}
+                  >
+                    Naar Voltooid
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={() => handleDeleteUser(user.id)}
+                    startIcon={<Delete />}
+                    sx={{
+                      backgroundColor: accentColor,
+                      '&:hover': {
+                        backgroundColor: secondaryColor,
+                      },
+                      color: '#fff',
+                    }}
+                  >
+                    Verwijder
+                  </Button>
+                </Box>
+              </Box>
+              <Collapse in={expandedUserId === user.id} timeout="auto" unmountOnExit>
+                <Box sx={{ borderTop: 1, borderColor: 'divider', paddingTop: 2 }}>
+                  <List>
+                    {['givenName', 'surname', 'userPrincipalName', 'jobTitle', 'department'].map((field, index) => (
+                      <ListItem key={index}>
+                        <ListItemText primary={field.replace(/([A-Z])/g, ' $1')} secondary={user[field]} />
+                        <IconButton onClick={() => copyToClipboard(user[field])}>
+                          <ContentCopy />
+                        </IconButton>
+                      </ListItem>
+                    ))}
+                    <ListItem>
+                      <ListItemText primary="Created At" secondary={new Date(user.createdDateTime).toLocaleString()} />
+                    </ListItem>
+                  </List>
+                  <Box sx={{ paddingTop: 2 }}>
+                    {['Postvakdelegatie', 'Groepen (Active Directory)', 'Logonscript', 'Ultimo (profiel)', 'Ultimo (user koppeling)', 'Controle profiel', 'Intranet machtigingen', 'brief'].map(item => (
+                      <Box display="flex" alignItems="center" key={item}>
+                        <Checkbox
+                          checked={user.todo && user.todo[item]}
+                          onChange={(e) => handleCheckboxChange(user.id, item, e.target.checked)}
+                        />
+                        <Typography variant="body2">{item}</Typography>
+                        {item === 'Groepen (Active Directory)' && (
+                          <IconButton onClick={(e) => { e.stopPropagation(); handleShowGroups(user); }}>
+                            <GroupIcon />
+                          </IconButton>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              </Collapse>
+            </CardContent>
+          </Card>
+        );
+      })}
+      {copiedText && <Typography sx={{ color: 'green' }}>Copied: {copiedText}</Typography>}
+      {showGroups && selectedUser && (
+        <Paper
+          sx={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            padding: 2,
+            zIndex: 1000,
+            width: '80%',
+            maxWidth: 600,
+            backgroundColor: '#fff',
+          }}
+        >
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Groepen voor {selectedUser.displayName}</Typography>
+            <IconButton onClick={() => setShowGroups(false)}>
+              <Close />
+            </IconButton>
+          </Box>
+          <List>
+            {groups.map((group, index) => (
+              <ListItem key={index}>
+                <ListItemIcon>
+                  <GroupIcon />
+                </ListItemIcon>
+                <ListItemText primary={group} />
+              </ListItem>
             ))}
-          </CheckboxContainer>
-          <Button onClick={() => handleDeleteUser(user.id)}>
-            <FaTrash /> Delete
-          </Button>
-          <Button onClick={() => handleCompleteUser(user)}>
-            <FaCheck /> Complete
-          </Button>
-          {copiedText && <p style={{ color: 'green' }}>Copied: {copiedText}</p>}
-        </Card>
-      ))}
-    </Container>
+          </List>
+        </Paper>
+      )}
+    </Box>
   );
 };
 
