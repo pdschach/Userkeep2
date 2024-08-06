@@ -6,7 +6,7 @@ import { loginRequest } from './authConfig';
 import { getUsers } from './graph';
 import { db } from './firebase';
 import { Box, Button, Card, CardContent, Typography } from '@mui/material';
-import { collection, doc, setDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs } from 'firebase/firestore';
 import Sidebar from './Sidebar';
 import UserList from './UserList';
 import CompletedUsers from './CompletedUsers';
@@ -23,6 +23,7 @@ const App = () => {
   const [users, setUsers] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState(null);
+  const [existingUsers, setExistingUsers] = useState(new Set());
 
   useEffect(() => {
     if (accounts.length > 0) {
@@ -45,13 +46,27 @@ const App = () => {
     }
   }, [instance, accounts]);
 
-  const fetchUsers = (accessToken) => {
-    getUsers(accessToken).then(users => {
-      setUsers(users);
-    }).catch(err => {
+  const fetchUsers = async (accessToken) => {
+    try {
+      const usersFromGraph = await getUsers(accessToken);
+
+      // Haal bestaande gebruikers uit Firestore
+      const userSnapshot = await getDocs(collection(db, 'users'));
+      const completedUserSnapshot = await getDocs(collection(db, 'completedUsers'));
+
+      // Verzamel IDs van bestaande gebruikers
+      const existingUserIds = new Set([
+        ...userSnapshot.docs.map(doc => doc.id),
+        ...completedUserSnapshot.docs.map(doc => doc.id),
+      ]);
+
+      setExistingUsers(existingUserIds);
+
+      setUsers(usersFromGraph);
+    } catch (err) {
       console.error("Error fetching users:", err);
       setError(err);
-    });
+    }
   };
 
   const handleSaveUser = async (user) => {
@@ -95,9 +110,9 @@ const App = () => {
                   <Button variant="contained" color="primary" onClick={handleLogin} sx={{ backgroundColor: primaryColor, '&:hover': { backgroundColor: highlightColor } }}>Login</Button>
                 )}
                 {error && <Typography color="error">Error: {error.message}</Typography>}
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-around' }}>
+                <Box>
                   {users.map(user => (
-                    <Card key={user.id} sx={{ width: 300, margin: 2, border: `1px solid ${highlightColor}` }}>
+                    <Card key={user.id} sx={{ marginBottom: 2, border: `1px solid ${highlightColor}` }}>
                       <CardContent>
                         <Typography variant="h6" sx={{ color: primaryColor }}>{user.displayName}</Typography>
                         <Typography variant="body2">First Name: {user.givenName}</Typography>
@@ -106,7 +121,11 @@ const App = () => {
                         <Typography variant="body2">Job Title: {user.jobTitle}</Typography>
                         <Typography variant="body2">Department: {user.department}</Typography>
                         <Typography variant="body2">Created At: {new Date(user.createdDateTime).toLocaleString()}</Typography>
-                        <Button variant="contained" color="secondary" onClick={() => handleSaveUser(user)} sx={{ backgroundColor: secondaryColor, '&:hover': { backgroundColor: accentColor }, color: '#fff' }}>Sla op in To-Do</Button>
+                        {!existingUsers.has(user.id) ? (
+                          <Button variant="contained" color="secondary" onClick={() => handleSaveUser(user)} sx={{ backgroundColor: secondaryColor, '&:hover': { backgroundColor: accentColor }, color: '#fff' }}>Sla op in To-Do</Button>
+                        ) : (
+                          <Typography variant="body2" sx={{ color: 'gray' }}>Reeds in To-Do of Voltooid</Typography>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
