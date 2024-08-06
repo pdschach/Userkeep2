@@ -1,5 +1,7 @@
+// graph.js
 import { Client } from '@microsoft/microsoft-graph-client';
 
+// Functie om gebruikers op te halen
 export async function getUsers(accessToken) {
   const client = Client.init({
     authProvider: (done) => {
@@ -35,6 +37,7 @@ export async function getUsers(accessToken) {
   }
 }
 
+// Functie om de groepen van een gebruiker op te halen
 export async function getUserGroups(userId, accessToken) {
   const client = Client.init({
     authProvider: (done) => {
@@ -51,6 +54,30 @@ export async function getUserGroups(userId, accessToken) {
     return result.value.map(group => group.displayName);
   } catch (error) {
     console.error("Error fetching user groups from Graph API:", error);
+    throw error;
+  }
+}
+
+// Functie om de mailboxen van een gebruiker op te halen
+export async function getUserMailboxes(userId, accessToken) {
+  const client = Client.init({
+    authProvider: (done) => {
+      done(null, accessToken);
+    },
+  });
+
+  try {
+    const result = await client
+      .api(`/users/${userId}/mailFolders`)
+      .select('id,displayName')
+      .get();
+
+    return result.value.map(mailbox => ({
+      id: mailbox.id,
+      displayName: mailbox.displayName,
+    }));
+  } catch (error) {
+    console.error('Error fetching mail folders from Graph API:', error);
     throw error;
   }
 }

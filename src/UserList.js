@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { db } from './firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
-import { getUserGroups } from './graph';
+import { getUserGroups, getUserMailboxes } from './graph'; // Voeg functie toe om mailboxes op te halen
 import {
   Box,
   Card,
@@ -18,6 +18,10 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  CircularProgress,
 } from '@mui/material';
 import {
   ExpandMore,
@@ -26,14 +30,15 @@ import {
   Delete,
   ContentCopy,
   Group as GroupIcon,
+  Mail as MailIcon,
 } from '@mui/icons-material';
-import UserGroupsDialog from './UserGroupsDialog'; // Importeer het nieuwe component
+import UserGroupsDialog from './UserGroupsDialog';
 
 // Huisstijlkleuren
-const primaryColor = '#008075'; // Groen voor complete en voltooid
-const accentColor = '#EBAFB9'; // Roze-rood voor delete en te doen
-const subtleBackgroundColor = '#f8f9fa'; // Subtiele achtergrondkleur
-const secondaryColor = '#FAA573'; // Kleur definitie toegevoegd
+const primaryColor = '#008075';
+const accentColor = '#EBAFB9';
+const subtleBackgroundColor = '#f8f9fa';
+const secondaryColor = '#FAA573';
 const highlightColor = '#A0ADE0';
 
 const UserList = () => {
@@ -47,6 +52,9 @@ const UserList = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [expandedUserId, setExpandedUserId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [mailboxDialogOpen, setMailboxDialogOpen] = useState(false);
+  const [mailboxes, setMailboxes] = useState([]);
+  const [loadingMailboxes, setLoadingMailboxes] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -73,10 +81,10 @@ const UserList = () => {
       await updateDoc(userDoc, {
         [`todo.${field}`]: value,
       });
-      setUsers(users.map(user => 
+      setUsers(users.map(user =>
         user.id === userId ? { ...user, todo: { ...user.todo, [field]: value } } : user
       ));
-      setFilteredUsers(filteredUsers.map(user => 
+      setFilteredUsers(filteredUsers.map(user =>
         user.id === userId ? { ...user, todo: { ...user.todo, [field]: value } } : user
       ));
     } catch (err) {
@@ -106,32 +114,30 @@ const UserList = () => {
     }
   };
 
- // UserList.js
-const handleCompleteUser = async (user) => {
-  try {
-    const completedDate = new Date().toISOString(); // Huidige datum en tijd in ISO-formaat
+  const handleCompleteUser = async (user) => {
+    try {
+      const completedDate = new Date().toISOString(); // Huidige datum en tijd in ISO-formaat
 
-    // Voeg completedDate toe aan het gebruikersdocument
-    const completedUser = {
-      ...user,
-      completedDate,
-    };
+      // Voeg completedDate toe aan het gebruikersdocument
+      const completedUser = {
+        ...user,
+        completedDate,
+      };
 
-    // Sla de gebruiker op in de 'completedUsers' collectie met de voltooidatum
-    await setDoc(doc(collection(db, 'completedUsers'), user.id), completedUser);
+      // Sla de gebruiker op in de 'completedUsers' collectie met de voltooidatum
+      await setDoc(doc(collection(db, 'completedUsers'), user.id), completedUser);
 
-    // Verwijder de gebruiker uit de 'users' collectie
-    await deleteDoc(doc(db, 'users', user.id));
+      // Verwijder de gebruiker uit de 'users' collectie
+      await deleteDoc(doc(db, 'users', user.id));
 
-    // Verwijder de gebruiker uit de lokale state
-    setUsers(users.filter(u => u.id !== user.id));
-    setFilteredUsers(filteredUsers.filter(u => u.id !== user.id));
-  } catch (err) {
-    console.error('Error completing user: ', err);
-    setError(err);
-  }
-};
-
+      // Verwijder de gebruiker uit de lokale state
+      setUsers(users.filter(u => u.id !== user.id));
+      setFilteredUsers(filteredUsers.filter(u => u.id !== user.id));
+    } catch (err) {
+      console.error('Error completing user: ', err);
+      setError(err);
+    }
+  };
 
   const handleShowGroups = async (user) => {
     try {
@@ -176,6 +182,26 @@ const handleCompleteUser = async (user) => {
       user.userPrincipalName.toLowerCase().includes(searchValue)
     );
     setFilteredUsers(filtered);
+  };
+
+  const handleShowMailboxes = async (user) => {
+    setLoadingMailboxes(true);
+    try {
+      const accessToken = await instance.acquireTokenSilent({
+        scopes: ['Mail.ReadWrite'],
+        account: accounts[0],
+      });
+
+      const userMailboxes = await getUserMailboxes(user.id, accessToken.accessToken);
+      setMailboxes(userMailboxes);
+      setSelectedUser(user);
+      setMailboxDialogOpen(true);
+    } catch (err) {
+      console.error('Error fetching mailboxes:', err);
+      setError(err);
+    } finally {
+      setLoadingMailboxes(false);
+    }
   };
 
   return (
@@ -274,6 +300,11 @@ const handleCompleteUser = async (user) => {
                             <GroupIcon />
                           </IconButton>
                         )}
+                        {item === 'Postvakdelegatie' && (
+                          <IconButton onClick={(e) => { e.stopPropagation(); handleShowMailboxes(user); }}>
+                            <MailIcon />
+                          </IconButton>
+                        )}
                       </Box>
                     ))}
                   </Box>
@@ -290,6 +321,22 @@ const handleCompleteUser = async (user) => {
         groups={groups}
         selectedUser={selectedUser}
       />
+      <Dialog open={mailboxDialogOpen} onClose={() => setMailboxDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Postvakken voor {selectedUser?.displayName}</DialogTitle>
+        <DialogContent>
+          {loadingMailboxes ? (
+            <CircularProgress />
+          ) : (
+            <List>
+              {mailboxes.map(mailbox => (
+                <ListItem key={mailbox.id}>
+                  <ListItemText primary={mailbox.displayName} />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };
