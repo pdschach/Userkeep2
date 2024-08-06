@@ -1,7 +1,7 @@
 // CompletedUsers.js
 import React, { useState, useEffect } from 'react';
 import { db } from './firebase';
-import { collection, getDocs, doc, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc, setDoc } from 'firebase/firestore'; // Voeg 'setDoc' toe hier
 import {
   Box,
   Card,
@@ -95,7 +95,7 @@ const CompletedUsers = () => {
   return (
     <Box sx={{ padding: 3, backgroundColor: subtleBackgroundColor, minHeight: '100vh' }}>
       <Typography variant="h4" align="center" gutterBottom sx={{ color: primaryColor }}>
-       Voltooide Gebruikers
+        Voltooide Gebruikers
       </Typography>
       {error && <Typography color="error">{error.message}</Typography>}
       {users.map(user => (
@@ -106,7 +106,12 @@ const CompletedUsers = () => {
                 <IconButton onClick={() => toggleExpandUser(user.id)} sx={{ color: primaryColor }}>
                   {expandedUserId === user.id ? <ExpandLess /> : <ExpandMore />}
                 </IconButton>
-                <Typography variant="h6" sx={{ color: primaryColor }}>{user.displayName}</Typography>
+                <Typography variant="h6" sx={{ color: primaryColor }}>
+                  {user.displayName}
+                </Typography>
+                <Typography variant="body2" sx={{ marginLeft: 2, color: highlightColor }}>
+                  Voltooid op: {new Date(user.completedDate).toLocaleString()}
+                </Typography>
               </Box>
               <Box>
                 <Button
