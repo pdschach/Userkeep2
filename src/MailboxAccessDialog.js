@@ -1,16 +1,16 @@
 // MailboxAccessDialog.js
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, List, ListItem, ListItemText, CircularProgress } from '@mui/material';
-import { getUserMailboxes } from './graph'; // Importeer de functie om postvakken op te halen
+import { getUserMailboxes } from './graph'; // Zorg ervoor dat het juiste pad wordt gebruikt
 
-const MailboxAccessDialog = ({ open, onClose, user }) => {
+const MailboxAccessDialog = ({ open, onClose, user, accessToken }) => {
   const [mailboxes, setMailboxes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (open && user) {
       setLoading(true);
-      getUserMailboxes(user.id)
+      getUserMailboxes(user.userPrincipalName, accessToken)
         .then(mailboxData => {
           setMailboxes(mailboxData);
           setLoading(false);
@@ -20,7 +20,7 @@ const MailboxAccessDialog = ({ open, onClose, user }) => {
           setLoading(false);
         });
     }
-  }, [open, user]);
+  }, [open, user, accessToken]);
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">

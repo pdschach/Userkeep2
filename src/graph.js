@@ -59,7 +59,7 @@ export async function getUserGroups(userId, accessToken) {
 }
 
 // Functie om de mailboxen van een gebruiker op te halen
-export async function getUserMailboxes(userId, accessToken) {
+export async function getUserMailboxes(userPrincipalName, accessToken) {
   const client = Client.init({
     authProvider: (done) => {
       done(null, accessToken);
@@ -67,17 +67,23 @@ export async function getUserMailboxes(userId, accessToken) {
   });
 
   try {
+    console.log(`Fetching mail folders for userPrincipalName: ${userPrincipalName}`);
     const result = await client
-      .api(`/users/${userId}/mailFolders`)
+      .api(`/users/${userPrincipalName}/mailFolders`)
       .select('id,displayName')
       .get();
+
+    console.log('Mail folders:', result.value);
 
     return result.value.map(mailbox => ({
       id: mailbox.id,
       displayName: mailbox.displayName,
     }));
   } catch (error) {
-    console.error('Error fetching mail folders from Graph API:', error);
+    console.error('Error fetching mail folders:', error);
+    if (error.response) {
+      console.error('Response error data:', error.response.data);
+    }
     throw error;
   }
 }

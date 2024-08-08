@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { db } from './firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
-import { getUserGroups, getUserMailboxes } from './graph'; // Voeg functie toe om mailboxes op te halen
+import { getUserGroups, getUserMailboxes } from './graph'; // Functies om gebruikersgroepen en mailboxen op te halen
 import {
   Box,
   Card,
@@ -17,7 +17,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -32,7 +31,8 @@ import {
   Group as GroupIcon,
   Mail as MailIcon,
 } from '@mui/icons-material';
-import UserGroupsDialog from './UserGroupsDialog';
+import UserGroupsDialog from './UserGroupsDialog'; // Component voor groepen
+import MailboxAccessDialog from './MailboxAccessDialog'; // Component voor mailboxen
 
 // Huisstijlkleuren
 const primaryColor = '#008075';
@@ -188,11 +188,11 @@ const UserList = () => {
     setLoadingMailboxes(true);
     try {
       const accessToken = await instance.acquireTokenSilent({
-        scopes: ['Mail.ReadWrite'],
+        scopes: ['Mail.Read', 'Mail.ReadWrite', 'Mail.ReadWrite.Shared', 'MailboxSettings.Read'],
         account: accounts[0],
       });
 
-      const userMailboxes = await getUserMailboxes(user.id, accessToken.accessToken);
+      const userMailboxes = await getUserMailboxes(user.userPrincipalName, accessToken.accessToken);
       setMailboxes(userMailboxes);
       setSelectedUser(user);
       setMailboxDialogOpen(true);
@@ -321,22 +321,12 @@ const UserList = () => {
         groups={groups}
         selectedUser={selectedUser}
       />
-      <Dialog open={mailboxDialogOpen} onClose={() => setMailboxDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Postvakken voor {selectedUser?.displayName}</DialogTitle>
-        <DialogContent>
-          {loadingMailboxes ? (
-            <CircularProgress />
-          ) : (
-            <List>
-              {mailboxes.map(mailbox => (
-                <ListItem key={mailbox.id}>
-                  <ListItemText primary={mailbox.displayName} />
-                </ListItem>
-              ))}
-            </List>
-          )}
-        </DialogContent>
-      </Dialog>
+      <MailboxAccessDialog
+        open={mailboxDialogOpen}
+        onClose={() => setMailboxDialogOpen(false)}
+        user={selectedUser}
+        accessToken={accounts[0]?.idToken} // Zorg ervoor dat het toegangstoken wordt doorgegeven
+      />
     </Box>
   );
 };
