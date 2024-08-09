@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { db } from './firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
-import { getUserGroups, getUserMailboxes } from './graph'; // Functies om gebruikersgroepen en mailboxen op te halen
+import { getUserGroups, getUserMailboxes } from './graph';
 import {
   Box,
   Card,
@@ -30,9 +30,10 @@ import {
   ContentCopy,
   Group as GroupIcon,
   Mail as MailIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
-import UserGroupsDialog from './UserGroupsDialog'; // Component voor groepen
-import MailboxAccessDialog from './MailboxAccessDialog'; // Component voor mailboxen
+import UserGroupsDialog from './UserGroupsDialog';
+import MailboxAccessDialog from './MailboxAccessDialog';
 
 // Huisstijlkleuren
 const primaryColor = '#008075';
@@ -55,6 +56,8 @@ const UserList = () => {
   const [mailboxDialogOpen, setMailboxDialogOpen] = useState(false);
   const [mailboxes, setMailboxes] = useState([]);
   const [loadingMailboxes, setLoadingMailboxes] = useState(false);
+  const [briefDialogOpen, setBriefDialogOpen] = useState(false);
+  const [briefContent, setBriefContent] = useState('');
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -204,6 +207,28 @@ const UserList = () => {
     }
   };
 
+  const handleGenerateBrief = (user) => {
+    const briefText = `
+      Geachte heer/mevrouw ${user.surname},
+
+      Hierbij bevestigen wij uw deelname aan het project. We danken u voor uw inzet en toewijding.
+
+      Met vriendelijke groet,
+      Uw Organisatie
+    `;
+    setBriefContent(briefText);
+    setBriefDialogOpen(true);
+  };
+
+  const handlePrintBrief = () => {
+    const printWindow = window.open('', '', 'width=800,height=600');
+    printWindow.document.write(`<pre>${briefContent}</pre>`);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
   return (
     <Box sx={{ padding: 3, backgroundColor: subtleBackgroundColor, minHeight: '100vh' }}>
       <Typography variant="h4" align="center" gutterBottom sx={{ color: primaryColor }}>
@@ -305,6 +330,11 @@ const UserList = () => {
                             <MailIcon />
                           </IconButton>
                         )}
+                        {item === 'Brief' && (
+                          <IconButton onClick={(e) => { e.stopPropagation(); handleGenerateBrief(user); }}>
+                            <PrintIcon />
+                          </IconButton>
+                        )}
                       </Box>
                     ))}
                   </Box>
@@ -325,8 +355,17 @@ const UserList = () => {
         open={mailboxDialogOpen}
         onClose={() => setMailboxDialogOpen(false)}
         user={selectedUser}
-        accessToken={accounts[0]?.idToken} // Zorg ervoor dat het toegangstoken wordt doorgegeven
+        accessToken={accounts[0]?.idToken}
       />
+      <Dialog open={briefDialogOpen} onClose={() => setBriefDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Gegenereerde Brief</DialogTitle>
+        <DialogContent>
+          <pre>{briefContent}</pre>
+          <Button onClick={handlePrintBrief} variant="contained" color="primary" startIcon={<PrintIcon />}>
+            Print
+          </Button>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };
