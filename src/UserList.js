@@ -4,42 +4,15 @@ import { useMsal } from '@azure/msal-react';
 import { db } from './firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { getUserGroups, getUserMailboxes } from './graph';
-import {
-  Box,
-  Card,
-  CardContent,
-  Button,
-  Typography,
-  Checkbox,
-  TextField,
-  IconButton,
-  Collapse,
-  List,
-  ListItem,
-  ListItemText,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  CircularProgress,
-} from '@mui/material';
-import {
-  ExpandMore,
-  ExpandLess,
-  Check,
-  Delete,
-  ContentCopy,
-  Group as GroupIcon,
-  Mail as MailIcon,
-  Print as PrintIcon,
-} from '@mui/icons-material';
+import { Box, TextField, Typography } from '@mui/material';
+import UserCard from './UserCard';
 import UserGroupsDialog from './UserGroupsDialog';
 import MailboxAccessDialog from './MailboxAccessDialog';
+import BriefDialog from './BriefDialog';
 
-// Huisstijlkleuren
 const primaryColor = '#008075';
 const accentColor = '#EBAFB9';
 const subtleBackgroundColor = '#f8f9fa';
-const secondaryColor = '#FAA573';
 const highlightColor = '#A0ADE0';
 
 const UserList = () => {
@@ -47,11 +20,9 @@ const UserList = () => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [error, setError] = useState(null);
-  const [copiedText, setCopiedText] = useState('');
   const [showGroups, setShowGroups] = useState(false);
   const [groups, setGroups] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [expandedUserId, setExpandedUserId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [mailboxDialogOpen, setMailboxDialogOpen] = useState(false);
   const [mailboxes, setMailboxes] = useState([]);
@@ -92,27 +63,6 @@ const UserList = () => {
       ));
     } catch (err) {
       console.error('Error updating todo: ', err);
-      setError(err);
-    }
-  };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedText(text);
-      setTimeout(() => setCopiedText(''), 2000); // Reset after 2 seconds
-    }).catch(err => {
-      console.error('Failed to copy: ', err);
-      setError(err);
-    });
-  };
-
-  const handleDeleteUser = async (userId) => {
-    try {
-      await deleteDoc(doc(db, 'users', userId));
-      setUsers(users.filter(user => user.id !== userId));
-      setFilteredUsers(filteredUsers.filter(user => user.id !== userId));
-    } catch (err) {
-      console.error('Error deleting user: ', err);
       setError(err);
     }
   };
@@ -159,34 +109,6 @@ const UserList = () => {
     }
   };
 
-  const toggleExpandUser = (userId) => {
-    setExpandedUserId(expandedUserId === userId ? null : userId);
-  };
-
-  const renderTodoSummary = (user) => {
-    const completedTasks = Object.entries(user.todo || {})
-      .filter(([key, value]) => value)
-      .map(([key]) => key);
-
-    const pendingTasks = Object.entries(user.todo || {})
-      .filter(([key, value]) => !value)
-      .map(([key]) => key);
-
-    return {
-      completed: completedTasks,
-      pending: pendingTasks,
-    };
-  };
-
-  const handleSearchChange = (event) => {
-    const searchValue = event.target.value.toLowerCase();
-    setSearchTerm(searchValue);
-    const filtered = users.filter(user =>
-      user.userPrincipalName.toLowerCase().includes(searchValue)
-    );
-    setFilteredUsers(filtered);
-  };
-
   const handleShowMailboxes = async (user) => {
     setLoadingMailboxes(true);
     try {
@@ -220,13 +142,13 @@ const UserList = () => {
     setBriefDialogOpen(true);
   };
 
-  const handlePrintBrief = () => {
-    const printWindow = window.open('', '', 'width=800,height=600');
-    printWindow.document.write(`<pre>${briefContent}</pre>`);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+  const handleSearchChange = (event) => {
+    const searchValue = event.target.value.toLowerCase();
+    setSearchTerm(searchValue);
+    const filtered = users.filter(user =>
+      user.userPrincipalName.toLowerCase().includes(searchValue)
+    );
+    setFilteredUsers(filtered);
   };
 
   return (
@@ -243,108 +165,17 @@ const UserList = () => {
         sx={{ marginBottom: 3, backgroundColor: '#fff', borderRadius: 1 }}
       />
       {error && <Typography color="error">{error.message}</Typography>}
-      {filteredUsers.map(user => {
-        const summary = renderTodoSummary(user);
-        return (
-          <Card key={user.id} sx={{ marginBottom: 2, border: `1px solid ${highlightColor}` }}>
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box display="flex" alignItems="center">
-                  <IconButton onClick={() => toggleExpandUser(user.id)} sx={{ color: primaryColor }}>
-                    {expandedUserId === user.id ? <ExpandLess /> : <ExpandMore />}
-                  </IconButton>
-                  <Typography variant="h6" sx={{ color: primaryColor }}>{user.displayName}</Typography>
-                  {summary.pending.length > 0 && (
-                    <Typography variant="body2" sx={{ marginLeft: 1, color: accentColor }}>
-                      Te Doen: {summary.pending.length}
-                    </Typography>
-                  )}
-                  {summary.completed.length > 0 && (
-                    <Typography variant="body2" sx={{ marginLeft: 1, color: primaryColor }}>
-                      Voltooid: {summary.completed.length}
-                    </Typography>
-                  )}
-                </Box>
-                <Box>
-                  <Button
-                    variant="contained"
-                    onClick={() => handleCompleteUser(user)}
-                    startIcon={<Check />}
-                    sx={{
-                      marginRight: 1,
-                      backgroundColor: primaryColor,
-                      '&:hover': {
-                        backgroundColor: highlightColor,
-                      },
-                      color: '#fff',
-                    }}
-                  >
-                    Naar Voltooid
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={() => handleDeleteUser(user.id)}
-                    startIcon={<Delete />}
-                    sx={{
-                      backgroundColor: accentColor,
-                      '&:hover': {
-                        backgroundColor: secondaryColor,
-                      },
-                      color: '#fff',
-                    }}
-                  >
-                    Verwijder
-                  </Button>
-                </Box>
-              </Box>
-              <Collapse in={expandedUserId === user.id} timeout="auto" unmountOnExit>
-                <Box sx={{ borderTop: 1, borderColor: 'divider', paddingTop: 2 }}>
-                  <List>
-                    {['givenName', 'surname', 'userPrincipalName', 'jobTitle', 'department'].map((field, index) => (
-                      <ListItem key={index}>
-                        <ListItemText primary={field.replace(/([A-Z])/g, ' $1')} secondary={user[field]} />
-                        <IconButton onClick={() => copyToClipboard(user[field])}>
-                          <ContentCopy />
-                        </IconButton>
-                      </ListItem>
-                    ))}
-                    <ListItem>
-                      <ListItemText primary="Created At" secondary={new Date(user.createdDateTime).toLocaleString()} />
-                    </ListItem>
-                  </List>
-                  <Box sx={{ paddingTop: 2 }}>
-                    {['Postvakdelegatie', 'Groepen (Active Directory)', 'Logonscript', 'Ultimo (profiel)', 'Ultimo (user koppeling)', 'Controle profiel', 'Intranet machtigingen', 'Brief'].map(item => (
-                      <Box display="flex" alignItems="center" key={item}>
-                        <Checkbox
-                          checked={user.todo && user.todo[item]}
-                          onChange={(e) => handleCheckboxChange(user.id, item, e.target.checked)}
-                        />
-                        <Typography variant="body2">{item}</Typography>
-                        {item === 'Groepen (Active Directory)' && (
-                          <IconButton onClick={(e) => { e.stopPropagation(); handleShowGroups(user); }}>
-                            <GroupIcon />
-                          </IconButton>
-                        )}
-                        {item === 'Postvakdelegatie' && (
-                          <IconButton onClick={(e) => { e.stopPropagation(); handleShowMailboxes(user); }}>
-                            <MailIcon />
-                          </IconButton>
-                        )}
-                        {item === 'Brief' && (
-                          <IconButton onClick={(e) => { e.stopPropagation(); handleGenerateBrief(user); }}>
-                            <PrintIcon />
-                          </IconButton>
-                        )}
-                      </Box>
-                    ))}
-                  </Box>
-                </Box>
-              </Collapse>
-            </CardContent>
-          </Card>
-        );
-      })}
-      {copiedText && <Typography sx={{ color: 'green' }}>Copied: {copiedText}</Typography>}
+      {filteredUsers.map(user => (
+        <UserCard
+          key={user.id}
+          user={user}
+          handleCheckboxChange={handleCheckboxChange}
+          handleCompleteUser={handleCompleteUser}
+          handleShowGroups={handleShowGroups}
+          handleShowMailboxes={handleShowMailboxes}
+          handleGenerateBrief={handleGenerateBrief}
+        />
+      ))}
       <UserGroupsDialog
         open={showGroups}
         onClose={() => setShowGroups(false)}
@@ -357,15 +188,11 @@ const UserList = () => {
         user={selectedUser}
         accessToken={accounts[0]?.idToken}
       />
-      <Dialog open={briefDialogOpen} onClose={() => setBriefDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Gegenereerde Brief</DialogTitle>
-        <DialogContent>
-          <pre>{briefContent}</pre>
-          <Button onClick={handlePrintBrief} variant="contained" color="primary" startIcon={<PrintIcon />}>
-            Print
-          </Button>
-        </DialogContent>
-      </Dialog>
+      <BriefDialog
+        open={briefDialogOpen}
+        onClose={() => setBriefDialogOpen(false)}
+        content={briefContent}
+      />
     </Box>
   );
 };

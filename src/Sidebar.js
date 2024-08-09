@@ -1,18 +1,46 @@
 // Sidebar.js
-import React from 'react';
-import { List, ListItem, ListItemIcon, ListItemText, AppBar, Toolbar, Typography, CssBaseline, Box, Divider } from '@mui/material';
-import { Dashboard, Group, CheckCircle, Home } from '@mui/icons-material';
+import React, { useState } from 'react';
+import { AppBar, Toolbar, Typography, IconButton, Box, CssBaseline, Divider, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Home, Settings as SettingsIcon, Dashboard, Group, CheckCircle } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
+import SettingsDialog from './SettingsDialog'; // Import SettingsDialog
 
 const drawerWidth = 240;
 
-// Huisstijlkleuren
-const primaryColor = '#008075'; // Groen voor actieve elementen
-const subtleBackgroundColor = '#f8f9fa'; // Subtiele achtergrondkleur voor main content
-const appBarColor = '#e0e0e0'; // Subtiele kleur voor de AppBar
-const highlightColor = '#A0ADE0'; // Voor randen en highlights
+const primaryColor = '#008075';
+const subtleBackgroundColor = '#f8f9fa';
+const appBarColor = '#e0e0e0';
+const highlightColor = '#A0ADE0';
 
 const Sidebar = ({ children }) => {
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [template, setTemplate] = useState(`
+    Beste {{username}},
+
+    Welkom in PC Sint-Amandus.
+
+    Hier vind je je e-mailadres en aanmeldgegevens voor Windows...
+
+    Je nieuwe e-mailadres is: {{email}}
+
+    ...
+
+    Dienst IT & medewerkers Zorgdossier
+  `);
+
+  const handleOpenSettings = () => {
+    setSettingsDialogOpen(true);
+  };
+
+  const handleCloseSettings = () => {
+    setSettingsDialogOpen(false);
+  };
+
+  const handleSaveTemplate = (newTemplate) => {
+    setTemplate(newTemplate);
+    // Hier kun je het nieuwe template opslaan in lokale opslag of database
+  };
+
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
@@ -21,9 +49,12 @@ const Sidebar = ({ children }) => {
           <ListItemIcon>
             <Home sx={{ color: primaryColor, fontSize: 36 }} />
           </ListItemIcon>
-          <Typography variant="h6" noWrap component="div" sx={{ color: primaryColor, marginLeft: 1 }}>
+          <Typography variant="h6" noWrap component="div" sx={{ color: primaryColor, marginLeft: 1, flexGrow: 1 }}>
             Onboard-O-Matic
           </Typography>
+          <IconButton color="inherit" onClick={handleOpenSettings}>
+            <SettingsIcon />
+          </IconButton>
         </Toolbar>
       </AppBar>
       <Box
@@ -78,12 +109,13 @@ const Sidebar = ({ children }) => {
           marginLeft: `${drawerWidth}px`,
           backgroundColor: subtleBackgroundColor,
           minHeight: '100vh',
-          paddingTop: (theme) => theme.spacing(8), // Zorg ervoor dat het hoofdgedeelte onder de AppBar begint
+          paddingTop: (theme) => theme.spacing(8),
         }}
       >
         <Toolbar />
         {children}
       </Box>
+      <SettingsDialog open={settingsDialogOpen} onClose={handleCloseSettings} template={template} onSave={handleSaveTemplate} />
     </Box>
   );
 };
